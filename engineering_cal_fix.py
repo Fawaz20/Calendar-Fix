@@ -1,57 +1,27 @@
 import icalendar as ical
-import os
+import csv # Could use pandas but would be slightly overkill
+
 '''Made to fix the icalendar files that mytimetable.com gives me.'''
 # TODO:
 # - Make it so that it can be run from the command line
-# - Change hard coded variables to text files
+# - Use a rest API to interact with mytimetable.com
+# - DONE --Change hard coded variables to text files
 
+csv_path = r'find_replace.csv' # Path to the csv file with the find and replace values
+ics_path = r'snbc51-MyTimetable(5).ics' # Path to ical file
 
-ics_path = r'snbc51-MyTimetable(4).ics' # Path to the original icalendar file
+# Read the csv file
+with open(r'find_replace.csv', 'r') as csvfile:
+    reader = csv.reader(csvfile, delimiter=',', dialect='excel') 
+    head = next(reader) # Skip the header
+    find = [] # List of strings to find
+    replace = [] # List of strings to replace with
+    for line in (reader):
+        find.append(line[0])
+        replace.append(line[1])
 
-# Define the find and replace terms
-# TODO - make this a dictionary
+find_replace = zip(find, replace)
 
-find_arr = []
-replace_arr = []
-
-# Solid Mechanics 3 (ENGI3411)
-find_arr.append("SUMMARY:ENGI3411")
-replace_arr.append("SUMMARY: Solid Mechanics 3 (ENGI3411)")
-
-# Control and Signal Processing 3 (ENGI3391)
-find_arr.append("SUMMARY:ENGI3391")
-replace_arr.append("SUMMARY: Control and Signal Processing 3 (ENGI3391)")
-
-# Materials
-find_arr.append("SUMMARY:ENGI3471")
-replace_arr.append("SUMMARY:Materials 3 (ENGI3471)")
-
-# Thermo
-find_arr.append("SUMMARY:ENGI3291")
-replace_arr.append("SUMMARY:Thermodynamics and Fluid Mechanics 3 (ENGI3291)")
-
-# Electrical (W103)
-find_arr.append("SUMMARY:ENGI3371\nDESCRIPTION:Electrical Engineering 3\nLOCATION:D/W103")
-replace_arr.append("SUMMARY:Electrical Engineering 3 (ENGI3371)\nDESCRIPTION:Electrical Engineering 3\nLOCATION:D/W103")
-
-# Electrical (CG85)
-find_arr.append("SUMMARY:ENGI3371\nDESCRIPTION:Electrical Engineering 3\nLOCATION:D/CG85")
-replace_arr.append("SUMMARY:Electrical Engineering 3 (ENGI3371)\nDESCRIPTION:Electrical Engineering 3\nLOCATION:D/CG85")
-
-# Academic Advisor Meeting
-find_arr.append("SUMMARY:ENGI3371\nDESCRIPTION:L3 Academic Adviser")
-replace_arr.append("SUMMARY:Academic Advisor Meeting\nDESCRIPTION:L3 Academic Adviser")
-
-# Labs
-find_arr.append("SUMMARY:ENGI3371\nDESCRIPTION:Engineering Labs 3")
-replace_arr.append("SUMMARY:Engineering Labs\nDESCRIPTION:Engineering Labs 3")
-
-# Design (Only replace the first one)
-find_arr.append("SUMMARY:ENGI3351\nDESCRIPTION:Engineering Design 3\nLOCATION:D/E121")
-replace_arr.append("SUMMARY:Engineering Design\nDESCRIPTION:Engineering Design 3\nLOCATION:D/E121")
-find_replace = zip(find_arr, replace_arr)
-
-# Read the file and perform the find and replace
 
 with open(ics_path, 'r') as f:
     filedata = f.read()
@@ -61,13 +31,39 @@ with open(ics_path, 'r') as f:
 with open(ics_path, 'w') as f:
     f.write(filedata)
 
+def remove_events_with_summary(event, summary, location = None): # Remove all events with a given summary, though for now set date to 01/01/2025
+    '''Remove all events with a given summary, though for now set date to 01/01/2025, optionally NOT the ones with a given location
+
+    Parameters
+    ----------
+    summary : string
+        Summary parameter of the event to be removed
+    event : icalendar.Event
+        Event to be removed
+    location : string, optional
+        Location parameter of the event to be KEPT
+    '''
+    # TODO: make method of icalendar.Calendar
+    if event.get('summary') == summary and location is None:
+        event['dtstart'] = '20250101T000000'
+        event['dtend'] = '20250101T000000'
+        event['dtstamp'] = '20250101T000000'
+        event['description'] = 'This event has been removed'
+    elif event.get('summary') == summary and event.get('location') != location:
+        event['dtstart'] = '20250101T000000'
+        event['dtend'] = '20250101T000000'
+        event['dtstamp'] = '20250101T000000'
+        event['description'] = 'This event has been removed'
+
 
 # Open the .ics file to delete the duplicate entries
 opencalendar = ical.Calendar.from_ical(open(ics_path, 'rb').read()) # Open the calendar as an icalendar object
 for event in opencalendar.walk('vevent'): # Loop through all events and remove duplicates
-    if event.get('summary') == 'ENGI3351' or (event.get('summary') == 'Engineering Labs' and event.get('location') != 'D/E121'):
-        opencalendar.remove_component(event)
-        
+    remove_events_with_summary(event, summary = 'ENGI3351')
+    remove_events_with_summary(event, summary = 'Engineering Labs', location = 'D/E121')
+
+
+
 
 # write the new calendar to an ics file
 f = open(ics_path, 'wb')
@@ -75,4 +71,3 @@ f.write(opencalendar.to_ical())
 f.close()
 
 print("Program ran successfully")
-
